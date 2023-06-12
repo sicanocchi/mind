@@ -36,7 +36,7 @@ func main() {
 	// al DB in quanto la stringa di connessione non sia ben formata.
 	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	defer db.Close()
 
