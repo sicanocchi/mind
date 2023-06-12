@@ -4,9 +4,16 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 
-	"github.com/go-sql-driver/mysql"
+	_ "github.com/lib/pq"
+)
+
+const (
+	host     = "localhost"
+	port     = 5432
+	user     = "postgres"
+	password = "root"
+	dbname   = "recordings"
 )
 
 type Album struct {
@@ -22,31 +29,22 @@ type Album struct {
 var db *sql.DB
 
 func main() {
-	// usiamo mysql.Config per raccogliere le proprietà di connessione
-	// e lo formattiamo in una stringa DNS per creare una stringa di connessione
-	cfg := mysql.Config{
-		User:   os.Getenv("DBUSER"),
-		Passwd: os.Getenv("DBPASS"),
-		Net:    "tcp",
-		Addr:   "@localhost:3306",
-		DBName: "recordings",
-	}
-	// utilizziamo sql.Open per inizializzare la variabile DB passando il valore
-	// restituito da FormatDSN.
+	// usiamo Sprintf per raccogliere le info salvate nelle costanti e creare una stringa di connessione
+	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+	// utilizziamo sql.Open per inizializzare la variabile DB passando la stringa di connessione
 	// verifichiamo la presenza di un errore, come per esempio la non riuscita della connessione
-	// al DB in quanto nla stringa di connessione non sia ben formata.
-	// per semplicità utilizziamo log.Fatal ma in produzione gestire meglio gli errori
-	var err error
-	db, err = sql.Open("mysql", cfg.FormatDSN())
+	// al DB in quanto la stringa di connessione non sia ben formata.
+	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
+	defer db.Close()
 
-	// chiamiamo DB.Ping per confermare che la connessione al Db funziona, controlliamo l'errore
+	// chiamiamo db.Ping per confermare che la connessione al db funziona, controlliamo l'errore
 	// fornito da Ping in caso di connessione fallita altrimenti stampiamo un messaggio di avvenuta connessione
-	pingErr := db.Ping()
-	if pingErr != nil {
-		log.Fatal(pingErr)
+	err = db.Ping()
+	if err != nil {
+		panic(err)
 	}
 	fmt.Println("Connected!")
 
@@ -55,6 +53,22 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Printf("Albums found: %v\n", albums)
+
+	alb, err := albumByID(2)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Album found: %v\n", alb)
+
+	albID, err := addAlbum(Album{
+		Title:  "The Modern Sound of Betty Carter",
+		Artist: "Betty Carter",
+		Price:  49.99,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("ID of added album: %v\n", albID)
 }
 
 // albumsByArtist crea una query in cui recupera gli album che hanno uno specifico artista
@@ -85,4 +99,35 @@ func albumsByArtist(name string) ([]Album, error) {
 		return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
 	}
 	return albums, nil
+}
+
+// albumByID crea una query in cui recupera gli album che hanno uno specifico ID
+func albumByID(id int64) (Album, error) {
+	// utilizziamo una variabile alb di tipo album per salvare le info dell'album che recuperiamo
+	var alb Album
+	// utilizziamo QueryRow per eseguire una query con SELECT
+	// a differenza di Query, QueryRow non restituisce un errore
+	row := db.QueryRow("SELECT * FROM album WHERE id = ?", id)
+	if err := row.Scan(&alb.ID, &alb.Title, &alb.Artist, &alb.Price); err != nil {
+		if err == sql.ErrNoRows {
+			return alb, fmt.Errorf("albumsById %d: no such album", id)
+		}
+		return alb, fmt.Errorf("albumsById %d: %v", id, err)
+	}
+	return alb, nil
+}
+
+// addAlbum aggiunge un album al db e restituisce il proprio ID
+func addAlbum(alb Album) (int64, error) {
+	// utilizziamo Exec per eseguire una query con INSERT
+	result, err := db.Exec("INSERT INTO album (title, artist, price) VALUES (?, ?, ?)", alb.Title, alb.Artist, alb.Price)
+	if err != nil {
+		return 0, fmt.Errorf("addAlbum: %v", err)
+	}
+	// recuperiamo l'id della riga dal databese tramite LastInsertId
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("addAlbum: %v", err)
+	}
+	return id, nil
 }
