@@ -4,8 +4,13 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
+	"github.com/lib/pq"
 	_ "github.com/lib/pq"
+	"github.com/rs/zerolog"
+	sqldblogger "github.com/simukti/sqldb-logger"
+	"github.com/simukti/sqldb-logger/logadapter/zerologadapter"
 )
 
 const (
@@ -34,10 +39,15 @@ func main() {
 	// utilizziamo sql.Open per inizializzare la variabile DB passando la stringa di connessione
 	// verifichiamo la presenza di un errore, come per esempio la non riuscita della connessione
 	// al DB in quanto la stringa di connessione non sia ben formata.
-	db, err := sql.Open("postgres", psqlInfo)
+	var err error
+	db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// serve per mostrare la query stampata mentre si debbugga
+	loggerAdapter := zerologadapter.New(zerolog.New(os.Stdout))
+	db = sqldblogger.OpenDriver(psqlInfo, &pq.Driver{}, loggerAdapter, sqldblogger.WithSQLQueryAsMessage(true)) // db is STILL *sql.DB
 	defer db.Close()
 
 	// chiamiamo db.Ping per confermare che la connessione al db funziona, controlliamo l'errore
@@ -75,7 +85,7 @@ func main() {
 func albumsByArtist(name string) ([]Album, error) {
 	// una slice di album per prendere i dati ritornati dalla select
 	var albums []Album
-	// utilizziamo db.Quesry per eseguire una query sul database,
+	// utilizziamo db.Query per eseguire una query sul database,
 	// il primo parametro è la query che vogliamo eseguire, dopo possiamo passare 0 o più parametri
 	// di qualsiasi tipo
 	rows, err := db.Query("SELECT * FROM album WHERE artist = ?", name)
