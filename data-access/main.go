@@ -58,7 +58,7 @@ func main() {
 	}
 	fmt.Println("Connected!")
 
-	albums, err := albumsByArtist("John Coltrane")
+	albums, err := albumsByArtist(`John Coltrane`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func albumsByArtist(name string) ([]Album, error) {
 	// utilizziamo db.Query per eseguire una query sul database,
 	// il primo parametro è la query che vogliamo eseguire, dopo possiamo passare 0 o più parametri
 	// di qualsiasi tipo
-	rows, err := db.Query("SELECT * FROM album WHERE artist = ?", name)
+	rows, err := db.Query("SELECT * FROM album WHERE artist = `?`", name)
 	if err != nil {
 		return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
 	}
