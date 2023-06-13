@@ -52,7 +52,7 @@ func main() {
 	}
 	fmt.Println("Connected!")
 	*/
-	//------------come fa il tutorial per connettersi------------da cambiare i vari campi
+	//------------come fa il tutorial per connettersi------------
 	//dsn := "host=" + host + " user=" + user + " password=" + password + " dbname=" + dbname + " port=" + port + " sslmode=disable"
 	dsn := "host= localhost user= postgres password= root  dbname= recordings  port= 5432  sslmode=disable"
 	var err error
